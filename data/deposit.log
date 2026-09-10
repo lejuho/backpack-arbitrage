@@ -1,0 +1,4 @@
+[fund] deposit.sent {"to":"GZmZt2DG9AHrMVcG31hnN5vurfpxJ7GgdEiBebwcp56o","usdc":155,"sig":"4wTmsHCyanTDougD5F7fyLiwy9LaGD3sHpX6JQ9VpT6VyzEx33fgxLSgVK4ndd6nxEawvDkhDgqFm6P8wYmWLVmT","confirmMs":1387,"bpUsdcBefore":0}
+[fund] deposit.status {"status":"pending","elapsedS":12,"bpUsdc":0}
+[fund] deposit.status {"status":"confirmed","elapsedS":84,"bpUsdc":155}
+[fund] deposit.credited {"elapsedS":84,"bpUsdc":155,"status":"confirmed"}

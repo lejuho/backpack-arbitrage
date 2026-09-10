@@ -1,0 +1,42 @@
+{
+ "SPCX.US": {
+  "n": 36,
+  "mean": 0.7,
+  "mae": 10.4,
+  "p95": 23.5,
+  "bt_sig": 0,
+  "bt_sig_live_below20": 0,
+  "bt_pos": 1,
+  "live_pos": 0
+ },
+ "SKHY.US": {
+  "n": 26,
+  "mean": 189.5,
+  "mae": 189.5,
+  "p95": 367.3,
+  "bt_sig": 8,
+  "bt_sig_live_below20": 8,
+  "bt_pos": 11,
+  "live_pos": 0
+ },
+ "MU.US": {
+  "n": 34,
+  "mean": 8.6,
+  "mae": 18.4,
+  "p95": 42.1,
+  "bt_sig": 2,
+  "bt_sig_live_below20": 2,
+  "bt_pos": 10,
+  "live_pos": 0
+ },
+ "SNDK.US": {
+  "n": 34,
+  "mean": 48.0,
+  "mae": 48.0,
+  "p95": 70.6,
+  "bt_sig": 2,
+  "bt_sig_live_below20": 2,
+  "bt_pos": 9,
+  "live_pos": 0
+ }
+}
