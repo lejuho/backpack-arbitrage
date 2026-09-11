@@ -5,6 +5,8 @@
   "type": "module",
   "description": "Solana DEX <-> Backpack tokenized-stock gap monitor and execution pipeline",
   "scripts": {
+    "test": "node --test",
+    "compare": "node src/cli.js compare",
     "universe": "node src/cli.js universe",
     "monitor": "node src/cli.js monitor",
     "snapshot": "node src/cli.js snapshot",

@@ -65,7 +65,8 @@ src/backpack/public.js   markets/assets/securities/depth/sessions (무인증)
 src/backpack/auth.js     ED25519 서명 (instruction=…&k=v…&timestamp&window)
 src/backpack/private.js  잔고, 입금주소, 출금, 스팟 주문, RFQ 제출/조회/수락
 src/backpack/ws.js       stockPrice.<TICKER>, bookTicker.<SYMBOL> 캐시
-src/dex/jupiter.js       price v3, /swap/v1 quote+swap, /ultra/v1 order+execute
+src/dex/jupiter.js       V1/Ultra, V2 order+execute, DEX-restricted V2 build quotes
+src/compare.js           V1/V2/DEX별 병렬 견적 비교 (읽기 전용)
 src/dex/raydium.js       compute/swap-base-in, 풀 목록
 src/session.js           ET 세션 판정 + market-holidays
 src/pricing.js           VWAP·견적 → 양방향 순수익
@@ -73,3 +74,39 @@ src/monitor.js           수집 루프/JSONL 기록
 src/executor.js          preflight / plan / 실행(dry 기본, --live 게이트)
 src/solana/wallet.js     키 로드, Token-2022 전송(ATA idempotent), 서명·전송
 ```
+
+## V1·V2·개별 DEX 견적 비교
+
+`.env`의 `JUPITER_API_KEY`를 설정한 뒤 실행합니다. 기존 `JUPITER_MODE=lite` 설정을 바꾸지 않고 세 종류의 견적을 비교할 수 있습니다. 키가 없으면 V1으로 몰래 대체하지 않고 오류를 표시합니다.
+
+```bash
+# 현재 지원하는 DEX 이름 확인 (대소문자와 공백까지 일치해야 함)
+node src/cli.js dex-labels
+
+# V1 전체 경로와 V2 통합 견적만 비교. 개인키 불필요.
+node src/cli.js compare SPCX.US --qty=1
+
+# 두 DEX의 제한 견적도 함께 조회. YOUR_PUBLIC_ADDRESS는 지갑 공개주소로 교체.
+node src/cli.js compare SPCX.US --qty=1 --dexes="Raydium CLMM,Meteora DLMM" --taker=YOUR_PUBLIC_ADDRESS
+
+# 30초 대기 후 다음 회차 반복. 한 회차는 네트워크 요청 시간만큼 추가로 걸림.
+node src/cli.js compare SPCX.US --qty=10 --dexes="Raydium CLMM,Meteora DLMM" --taker=YOUR_PUBLIC_ADDRESS --poll=30000
+```
+
+`compare`는 서명·매매·출금을 하지 않으며 개인키를 읽지 않습니다. `--live`는 거부합니다. DEX별 조회는 V2 `/build`의 `dexes` 제한을 사용하며, 반환된 경로도 지정한 DEX에 속하는지 검사합니다. DEX 하나를 지정해도 그 DEX의 여러 풀을 거칠 수 있습니다. 풀별 주소는 `quotes[].routePlan`에 남습니다. 유효한 DEX 이름이라도 해당 토큰의 거래 경로가 없을 수 있습니다.
+
+결과는 기존 `gaps.jsonl`과 분리된 `data/quotes.compare.jsonl`에 기록합니다. 한 종목·수량·회차당 `v1-all`, `v2-all`, 지정한 DEX별 행을 저장합니다. 요청 시작·종료 시각, 반환된 경로, 라우터, 예상 수령량, 최소 수령량, API가 반환한 수수료 정보, 실패 원인을 기록합니다. 서명할 트랜잭션 본문은 저장하지 않습니다.
+
+- 모든 출처는 같은 회차의 참고 가격으로 같은 USDC 매수 금액을 조회합니다. 매수 수령량은 정확히 1주로 고정되지 않습니다. 참고 가격을 얻지 못하면 중단하며, 필요하면 `--ref-price=150`처럼 **매수 수량 산정용** 가격만 지정할 수 있습니다. 이 값으로 Backpack 거래 가격을 만들어내지는 않습니다.
+- 매도 견적은 `신청 수량 − 출금 수수료`를 토큰 최소 단위로 계산해 조회합니다. 수수료·최소 출금량 때문에 출금이 불가능하면 그 방향을 실패로 기록합니다.
+- `--max-age=5000`은 기본 5초입니다. 회차 종료 시 오래된 견적 또는 Backpack 관측부터 비교 완료까지 이 기준을 넘긴 행은 `stale=true`로 표시하고 수익 계산에서 제외합니다. 병렬 요청도 완전히 동일한 순간은 아닙니다.
+- 평일 Backpack 값은 공개 참고 가격에 기반한 추정이며 **실제 브로커 RFQ 견적이 아닙니다**. `edgeBasis=reference-price-only-not-executable-RFQ`를 기록합니다. 주말은 실제 매수·매도 수량으로 호가창을 다시 계산하고 부족한 주문량을 배제하지만, 이 역시 동시 체결이나 전송 후 수익을 보장하지 않습니다.
+- 네트워크 비용은 기존 `SOL_TX_FEE_USD` 가정으로 별도 계산합니다. V2 대납 비용 등으로 실제 비용과 다를 수 있으며 `costAssumptions`에 가정을 기록합니다. Jupiter 견적에 포함된 교환 수수료는 다시 차감하지 않습니다.
+
+기존 모니터도 출금 후 실제 수량의 매도 견적을 사용하도록 변경했습니다. 새 `gaps.jsonl` 행은 `pricingVersion=2`, `dexSellShares`, `dexSellUsdcOut`을 포함합니다. 이전 행과 같은 계산 버전으로 합산하지 마세요.
+
+`JUPITER_MODE=v2`로 기존 실행기를 사용할 때는 V2 `/order`의 거래를 V2 `/execute`로 보내도록 연결했습니다. `build`는 현재 비교 전용이며, 개별 DEX 실행기를 완성한 것은 아닙니다. 기존 `--provider=raydium`도 견적 조회 옵션이므로 Jupiter 실행기를 Raydium 전용으로 바꾸지 않습니다. 실제 자산을 이동시키는 검증은 이번 변경에서 수행하지 않았습니다.
+
+검증: `npm test` (네트워크·거래 API는 모의 응답으로 대체).
+
+공식 근거: [V2 통합 견적](https://developers.jup.ag/docs/swap/order-and-execute), [DEX 제한 Build API](https://developers.jup.ag/docs/api-reference/swap/build), [V1→V2 변경점](https://developers.jup.ag/docs/swap/migration/metis-to-build). 확인일 2026-09-11.

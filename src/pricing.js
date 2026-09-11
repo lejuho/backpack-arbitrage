@@ -8,30 +8,32 @@ const toBase = (x, dec) => Math.round(x * 10 ** dec);
 const fromBase = (x, dec) => x / 10 ** dec;
 
 /**
- * DEX side for `qty` shares of token: (a) sell qty shares -> USDC, (b) buy with USDC notional ≈ qty*ref -> shares.
+ * DEX side: (a) sell post-withdrawal shares -> USDC, (b) buy with USDC notional ≈ qty*ref -> shares.
  * Returns per-share effective prices already net of AMM fees/impact (they are inside outAmount).
  */
-export async function dexSide(token, qty, refPrice, { provider = 'jupiter' } = {}) {
-  const q = provider === 'raydium' ? rayQuote : jupQuote;
-  const sellIn = toBase(qty, token.decimals);
+export async function dexSide(token, qty, refPrice, { provider = 'jupiter', quoteOptions = {}, quoteFn } = {}) {
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error('qty must be positive');
+  const q = quoteFn || (provider === 'raydium' ? rayQuote : (args) => jupQuote({ ...args, ...quoteOptions }));
+  const sellIn = Math.max(0, toBase(qty, token.decimals) - toBase(token.withdrawalFee || 0, token.decimals));
   const buyIn = toBase(qty * refPrice, USDC_DEC);
   const [sell, buy] = await Promise.allSettled([
-    q({ inputMint: token.mint, outputMint: CFG.USDC_MINT, amount: sellIn }),
-    q({ inputMint: CFG.USDC_MINT, outputMint: token.mint, amount: buyIn }),
+    sellIn > 0 && qty >= (token.minimumWithdrawal || 0) && token.withdrawEnabled !== false
+      ? q({ inputMint: token.mint, outputMint: CFG.USDC_MINT, amount: sellIn }) : Promise.reject(new Error('withdrawal amount below fee/minimum or withdrawals disabled')),
+    Number.isSafeInteger(buyIn) && buyIn > 0 ? q({ inputMint: CFG.USDC_MINT, outputMint: token.mint, amount: buyIn }) : Promise.reject(new Error('no valid reference price for buy sizing')),
   ]);
   const s = sell.status === 'fulfilled' ? sell.value : null;
   const b = buy.status === 'fulfilled' ? buy.value : null;
-  const ultraFee = (x) => (x && x.mode === 'ultra' ? CFG.JUP_ULTRA_FEE_BPS / 1e4 : 0);
+  // Jupiter outAmount already reflects quote fees; never subtract a fixed fee again.
   return {
     provider,
     sell: s && {
-      sharesIn: qty, usdcOut: fromBase(s.outAmount, USDC_DEC) * (1 - ultraFee(s)),
-      pxPerShare: (fromBase(s.outAmount, USDC_DEC) * (1 - ultraFee(s))) / qty,
+      sharesIn: fromBase(s.inAmount, token.decimals), usdcOut: fromBase(s.outAmount, USDC_DEC),
+      pxPerShare: fromBase(s.outAmount, USDC_DEC) / fromBase(s.inAmount, token.decimals),
       impactPct: s.priceImpactPct, routes: s.routes, mode: s.mode,
     },
     buy: b && {
-      usdcIn: fromBase(b.inAmount, USDC_DEC), sharesOut: fromBase(b.outAmount, token.decimals) * (1 - ultraFee(b)),
-      pxPerShare: fromBase(b.inAmount, USDC_DEC) / (fromBase(b.outAmount, token.decimals) * (1 - ultraFee(b))),
+      usdcIn: fromBase(b.inAmount, USDC_DEC), sharesOut: fromBase(b.outAmount, token.decimals),
+      pxPerShare: fromBase(b.inAmount, USDC_DEC) / fromBase(b.outAmount, token.decimals),
       impactPct: b.priceImpactPct, routes: b.routes, mode: b.mode,
     },
     errors: [sell, buy].filter((r) => r.status === 'rejected').map((r) => String(r.reason).slice(0, 160)),
@@ -97,10 +99,10 @@ export function computeEdges(token, qty, bp, dex) {
     return { shares, cost, proceeds, net: proceeds - cost, bps: ((proceeds - cost) / cost) * 1e4 };
   };
   const edgeB = (buyPx) => { // B: buy on Backpack -> withdraw (fee in shares) -> sell on DEX
-    const cost = qty * buyPx * (1 + bpFee) + CFG.SOL_TX_FEE_USD, sharesAfter = Math.max(0, qty - token.withdrawalFee), proceeds = dex.sell.pxPerShare * sharesAfter;
+    const cost = qty * buyPx * (1 + bpFee) + CFG.SOL_TX_FEE_USD, sharesAfter = dex.sell.sharesIn, proceeds = dex.sell.usdcOut;
     return { shares: sharesAfter, cost, proceeds, net: proceeds - cost, bps: ((proceeds - cost) / cost) * 1e4 };
   };
-  if (dex.buy && bp.sellPx) { res.dexToBp = edgeA(bp.sellPx); res.dexToBpCons = edgeA(bp.sellPxCons ?? bp.sellPx); if (bp.bookSellPx) res.dexToBpBook = edgeA(bp.bookSellPx); }
-  if (dex.sell && bp.buyPx) { res.bpToDex = edgeB(bp.buyPx); res.bpToDexCons = edgeB(bp.buyPxCons ?? bp.buyPx); if (bp.bookBuyPx) res.bpToDexBook = edgeB(bp.bookBuyPx); }
+  if (dex.buy && bp.sellPx && !bp.partial && token.depositEnabled !== false && dex.buy.sharesOut >= (token.minimumDeposit || 0)) { res.dexToBp = edgeA(bp.sellPx); res.dexToBpCons = edgeA(bp.sellPxCons ?? bp.sellPx); if (bp.bookSellPx && !bp.bookPartial) res.dexToBpBook = edgeA(bp.bookSellPx); }
+  if (dex.sell && bp.buyPx && !bp.partial && token.withdrawEnabled !== false && qty >= (token.minimumWithdrawal || 0)) { res.bpToDex = edgeB(bp.buyPx); res.bpToDexCons = edgeB(bp.buyPxCons ?? bp.buyPx); if (bp.bookBuyPx && !bp.bookPartial) res.bpToDexBook = edgeB(bp.bookBuyPx); }
   return res;
 }

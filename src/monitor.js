@@ -17,12 +17,13 @@ export async function snapshotOnce({ universe, session, qty, stockPriceCache, ex
     const ref = bp.buyPx || bp.sellPx || null;
     let dex = { sell: null, buy: null, errors: ['no reference price for buy sizing'] };
     if (ref) dex = await dexSide(token, qty, ref, { provider });
-    else dex = await dexSide(token, qty, 100, { provider }); // arbitrary sizing; sell quote still meaningful
+    else dex = await dexSide(token, qty, null, { provider }); // no fabricated buy sizing reference
     const edges = computeEdges(token, qty, bp, dex);
     rows.push({
       ts: nowIso(), session: session.session, symbol: token.symbol, qty,
       bpVenue: bp.venue, bpBid: bp.bid, bpAsk: bp.ask, bpBuyPx: bp.buyPx, bpSellPx: bp.sellPx, bpPartial: bp.partial, bpNote: bp.note,
       dexProvider: provider, dexSellPx: dex.sell?.pxPerShare ?? null, dexBuyPx: dex.buy?.pxPerShare ?? null,
+      pricingVersion: 2, dexSellShares: dex.sell?.sharesIn ?? null, dexSellUsdcOut: dex.sell?.usdcOut ?? null,
       dexSellImpact: dex.sell?.impactPct ?? null, dexBuyImpact: dex.buy?.impactPct ?? null,
       dexSellRoutes: dex.sell?.routes?.join('|') ?? null, dexBuyRoutes: dex.buy?.routes?.join('|') ?? null, dexErrors: dex.errors.join('; '),
       bpBasis: bp.basis ?? null, bookBid: bp.bookBid ?? null, bookAsk: bp.bookAsk ?? null, bookBuyPx: bp.bookBuyPx ?? null, bookSellPx: bp.bookSellPx ?? null,

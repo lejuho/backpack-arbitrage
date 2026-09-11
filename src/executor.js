@@ -13,7 +13,7 @@ import { CFG } from './config.js';
 import { buildUniverse } from './universe.js';
 import { currentSession } from './session.js';
 import { dexSide, backpackSide, computeEdges } from './pricing.js';
-import { jupQuote, jupBuildSwapTx, jupUltraExecute } from './dex/jupiter.js';
+import { jupQuote, jupBuildSwapTx, jupUltraExecute, jupV2Execute } from './dex/jupiter.js';
 import { bpBalances, bpDepositAddress, bpDeposits, bpWithdraw, bpWithdrawals, bpOrder, bpRfqTrade } from './backpack/private.js';
 import { loadKeypair, signAndSend, transferToken2022, tokenBalance, usdcBalance, solBalance } from './solana/wallet.js';
 import { sleep, nowIso } from './util/http.js';
@@ -28,6 +28,8 @@ const log = (step, data) => {
 export async function preflight(symbol, { needWallet = true, needBackpack = true } = {}) {
   const checks = [];
   const ok = (name, pass, detail = '') => checks.push({ name, pass, detail });
+  ok('Jupiter execution mode', ['lite', 'ultra', 'v2'].includes(CFG.JUPITER_MODE), 'build mode is comparison-only');
+  if (CFG.JUPITER_MODE === 'v2') ok('Jupiter V2 API key', !!CFG.JUPITER_API_KEY, 'V2 does not fall back to V1');
   const [token] = await buildUniverse({ watch: [symbol] });
   ok('token listed with Solana rails', !!token, token ? `${token.mint} dep=${token.depositEnabled} wd=${token.withdrawEnabled} fee=${token.withdrawalFee}sh` : 'not in Backpack assets with Solana deposit/withdraw');
   if (!token) return { token: null, checks };
@@ -86,11 +88,12 @@ async function dexBuy({ token, usdcIn, kp, live }) {
   log('dex.buy.quote', { usdcIn, sharesOut: q.outAmount / 10 ** token.decimals, routes: q.routes, mode: q.mode });
   if (!live) return { sig: null, shares: q.outAmount / 10 ** token.decimals };
   let sig;
-  if (q.mode === 'ultra') {
+  if (q.mode === 'ultra' || q.mode === 'v2') {
+    if (!q.executable || !q.raw.requestId) throw new Error('Jupiter returned a non-executable quote');
     const { VersionedTransaction } = await import('@solana/web3.js');
     const tx = VersionedTransaction.deserialize(Buffer.from(q.raw.transaction, 'base64')); tx.sign([kp]);
-    const r = await jupUltraExecute({ signedTransaction: Buffer.from(tx.serialize()).toString('base64'), requestId: q.raw.requestId });
-    if (r.status !== 'Success') throw new Error(`ultra execute: ${JSON.stringify(r).slice(0, 300)}`);
+    const r = await (q.mode === 'v2' ? jupV2Execute : jupUltraExecute)({ signedTransaction: Buffer.from(tx.serialize()).toString('base64'), requestId: q.raw.requestId });
+    if (r.status !== 'Success') throw new Error(`Jupiter execute: ${JSON.stringify(r).slice(0, 300)}`);
     sig = r.signature;
   } else {
     const built = await jupBuildSwapTx({ quote: q, userPublicKey: kp.publicKey.toBase58() });
@@ -104,11 +107,12 @@ async function dexSell({ token, shares, kp, live }) {
   log('dex.sell.quote', { shares, usdcOut: q.outAmount / 1e6, routes: q.routes, mode: q.mode });
   if (!live) return { sig: null, usdc: q.outAmount / 1e6 };
   let sig;
-  if (q.mode === 'ultra') {
+  if (q.mode === 'ultra' || q.mode === 'v2') {
+    if (!q.executable || !q.raw.requestId) throw new Error('Jupiter returned a non-executable quote');
     const { VersionedTransaction } = await import('@solana/web3.js');
     const tx = VersionedTransaction.deserialize(Buffer.from(q.raw.transaction, 'base64')); tx.sign([kp]);
-    const r = await jupUltraExecute({ signedTransaction: Buffer.from(tx.serialize()).toString('base64'), requestId: q.raw.requestId });
-    if (r.status !== 'Success') throw new Error(`ultra execute: ${JSON.stringify(r).slice(0, 300)}`);
+    const r = await (q.mode === 'v2' ? jupV2Execute : jupUltraExecute)({ signedTransaction: Buffer.from(tx.serialize()).toString('base64'), requestId: q.raw.requestId });
+    if (r.status !== 'Success') throw new Error(`Jupiter execute: ${JSON.stringify(r).slice(0, 300)}`);
     sig = r.signature;
   } else {
     const built = await jupBuildSwapTx({ quote: q, userPublicKey: kp.publicKey.toBase58() });
