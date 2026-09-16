@@ -40,7 +40,7 @@ node src/cli.js exec SPCX.US --dir=bpToDex --live --2fa=123456   # 실제 실행
 - DEX 견적(outAmount)과 Backpack 호가 VWAP 에는 이미 가격 영향이 포함되어 있으므로 슬리피지를 중복 차감하지 않는다.
 - Backpack 출금 수수료는 토큰(주식) 수량에서 차감되므로 매도 수량에서만 뺀다(`/api/v1/assets` 의 `withdrawalFee`).
 - Backpack 주식 스팟은 수수료 0(공식 문서). `BP_SPOT_FEE_BPS` 로 조정 가능.
-- 평일 RFQ 경로는 두 기준을 같이 기록한다. **기대(exp)**: 브로커 정산가 ≈ 미국 시장 최근가(9/9 실체결 9건에서 견적 중간값 ±5 bps). **보수(cons)**: 견적 bid/ask(±15 bps). 기회 플래그는 기대 기준 순수익이 `EDGE_BPS + RFQ_SETTLE_VAR_BPS` 이상일 때, 호가창 경로는 `EDGE_BPS` 이상일 때.
+- 평일 RFQ 참고 모델은 두 기준을 같이 기록한다. **기대(exp)**: 미국 시장 최근가를 정산가의 대용값으로 사용하는 가정. **보수(cons)**: 최근가에 ±15 bps를 적용한 가정 가격. 둘 다 해당 수량으로 실제 받은 RFQ가 아니며, 보수 기준도 손실 상한이나 실행 보장이 아니다. 실제 매도 RFQ는 별도 `compare --bp-rfq`로 구분한다. 기회 플래그는 기대 기준 순수익이 `EDGE_BPS + RFQ_SETTLE_VAR_BPS` 이상일 때, 호가창 경로는 `EDGE_BPS` 이상일 때.
 - 수량은 `QTYS`(기본 1,10주)마다 따로 기록한다. 출금 수수료는 주식 수량 고정이라 수량이 클수록 희석되고, 대신 호가 깊이·가격 영향이 커진다.
 
 ## 백그라운드 수집
@@ -110,3 +110,32 @@ node src/cli.js compare SPCX.US --qty=10 --dexes="Raydium CLMM,Meteora DLMM" --t
 검증: `npm test` (네트워크·거래 API는 모의 응답으로 대체).
 
 공식 근거: [V2 통합 견적](https://developers.jup.ag/docs/swap/order-and-execute), [DEX 제한 Build API](https://developers.jup.ag/docs/api-reference/swap/build), [V1→V2 변경점](https://developers.jup.ag/docs/swap/migration/metis-to-build). 확인일 2026-09-11.
+
+### Backpack 실제 매도 RFQ와 비교
+
+```bash
+node src/cli.js compare SPCX.US --qty=1 \
+  --dexes="Raydium CLMM,Meteora DLMM" \
+  --taker=YOUR_PUBLIC_ADDRESS --bp-rfq
+```
+
+`--bp-rfq`는 평일에 DEX 매수 견적의 **실제 수령 예정 수량**으로 Backpack
+`Ask` RFQ를 `AwaitAccept` 모드로 요청합니다. 응답의 `bidPrice`를 사용하고 요청을
+취소합니다. 주문 수락이나 자산 이동은 하지 않지만, 인증된 RFQ 요청은 생성합니다.
+Backpack API 키와 서명이 필요하며, 요청 단계에서 Backpack 계정 잔고나 세션별
+수량 제한으로 거절될 수 있습니다. 이 경우 참고 가격으로 대체하지 않고 `A_bps`를
+비웁니다. 매수 RFQ는 요청하지 않으므로 이 모드의 평일 `B_bps`도 비워 둡니다.
+주말에는 기존 공개 호가창 비교를 유지합니다.
+
+`validA`는 DEX 매수 → Backpack 매도 방향의 관측 유효성입니다. 반대 방향의
+Jupiter 매도 견적이 실패해도 매수 견적과 Backpack RFQ가 유효하면 A를 계산합니다.
+`valid`는 기존 양방향 DEX 견적 유효성입니다. RFQ 요청 수량, 가격, 관측 시각,
+만료 시각, 취소 결과와 실패 이유는 `data/quotes.compare.jsonl`에 기록합니다.
+RFQ 대기까지 포함한 관측 시간이 `--max-age`(기본 5000ms)를 넘으면 계산에서 제외합니다.
+
+수익은 여전히 비용 설정에 따른 추정치입니다. RFQ는 조회 후 취소되므로 입금 후
+가격을 보장하지 않으며, 실제 정산 금액·추가 비용은 체결로 검증하지 않았습니다.
+2026-09-11 실제 1주 기준 호출에서는 DEX 견적을 받았으나 Backpack 매도 RFQ가
+`INSUFFICIENT_FUNDS`로 거절되어 매도 가격과 차익을 산출하지 못했습니다.
+
+API 근거: https://docs.backpack.exchange/ (`Submit RFQ`, `Get RFQs`, `Cancel RFQ`).

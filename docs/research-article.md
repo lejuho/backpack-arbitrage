@@ -53,7 +53,7 @@ Backpack의 체결 방식은 시간대에 따라 다르다. 미국 주식 거래
 
 입출금은 스테이블코인과 같은 흐름이다. 출금은 일반 Solana 출금 API에 주식 심볼을 넣으면 되고 약 0.5달러 상당을 해당 주식 수량으로 차감한다(SPCX 0.004주). 입금은 사용자 전용 Solana 주소로 토큰을 보내면 되고 무료다. 무인 실행에는 지갑 주소를 주소록에 2FA 면제로 등록해야 한다. 이용 제한은 미국·영국·UAE·일본과 Backpack EU이며, 그 외 지역은 KYC 완료 계정에서 약관 동의 한 번으로 거래된다([Conversion Flow](https://support.backpack.exchange/backpack-securities/tokenized-securities/conversion-flow.md), [Eligibility & Access](https://support.backpack.exchange/backpack-securities/eligibility-and-access.md), 확인일 2026-09-06).
 
-[구조 이미지 삽입 예정: Solana DEX(Jupiter 집계 / 개별 풀) ↔ 지갑 ↔ Backpack 입금주소 → 브로커리지 계좌 → RFQ 또는 자체 호가창. 각 화살표에 소요 시간(입금 100초, 출금 11초)과 비용(출금 0.004주, 트랜잭션 약 0.05달러)을 표시]
+![SPCX 거래 경로 구조도: Solana DEX와 개인 지갑, Backpack 계정을 연결하며 입금 반영 100초와 출금 도착 11초를 표시](images/trading-route.png)
 
 이미지 출처: 팀 제작. Backpack API 문서, Conversion Flow 문서, 2026-09-09 실측 기록(`data/exec.jsonl`).
 
@@ -116,7 +116,11 @@ Backpack의 체결 방식은 시간대에 따라 다르다. 미국 주식 거래
 
 **해석:** 5분 뒤에 팔면 A 방향 신호의 18.6%, B 방향 신호의 59.5%가 손익 0 이하로 바뀌었다. 지연의 영향은 방향에 따라 달랐다. 미국 시장의 가격 변화가 DEX에 반영되면서 기회가 줄었을 수 있지만, 두 시장의 가격 반영 속도와 시장 조성자의 대응 시간은 따로 측정하지 않았다.
 
-[결과 이미지 삽입 예정: 같은 표본(SPCX 5분 구간 13,142개)에서 A·B 방향별로 단순 가격 차이 → 비용 반영(30 bps / 10 bps) → 신호 후 5분 실현의 분포와 건수를 비교하는 깔때기 그래프. 두 번째 이미지는 월별 신호 수(6월 80, 7월 15, 8월 45, 9월 5)와 거래 시간대별 분포]
+![SPCX 백테스트 단계별 비교: 브로커 스프레드 30·10 bps 조건에서 비용과 5분 지연을 반영한 신호 수와 전체 표본 대비 비율](images/backtest-funnel.png)
+
+이미지 출처: 팀 제작. `data/hist/`와 `src/backtest.js`로 재계산하고 저장된 SPCX 결과 CSV와 대조했다. 5분 뒤 가격이 없으면 현재 가격을 사용하는 기존 모델을 재현한 모의 결과이며 실제 체결 수익은 아니다.
+
+![SPCX A 방향 신호의 월별·거래 시간대별 비율과 표본 수. 주말은 표본 없음](images/signal-distribution.png)
 
 이미지 출처: 팀 수집 데이터 `data/backtest.SPCX.US.external.csv`, `data/backtest.sensitivity.csv`, 관측 기간 2026-06-12~09-09, 코드 `src/backtest.js`. 조건: 1주, 브로커 스프레드 30 bps와 10 bps, 출금 수수료 0.004주, 트랜잭션 0.05달러, 지연 5분.
 

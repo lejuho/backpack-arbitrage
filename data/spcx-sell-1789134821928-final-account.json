@@ -1,0 +1,15 @@
+{
+  "ts": "2026-09-11T14:03:01.316Z",
+  "spcx": {
+    "available": "0.010093",
+    "locked": "0",
+    "staked": "0"
+  },
+  "usdc": {
+    "available": "156.0424916",
+    "locked": "0",
+    "staked": "0"
+  },
+  "observationRfqsStillOpen": [],
+  "observationFills": []
+}

@@ -1,0 +1,80 @@
+{
+  "sample_count": 13142,
+  "stages": {
+    "A_30": [
+      7560,
+      806,
+      145,
+      118
+    ],
+    "A_10": [
+      7560,
+      2595,
+      300,
+      252
+    ],
+    "B_30": [
+      5582,
+      83,
+      42,
+      17
+    ],
+    "B_10": [
+      5582,
+      125,
+      60,
+      27
+    ]
+  },
+  "distribution": [
+    [
+      {
+        "label": "6월",
+        "samples": 1871,
+        "signals": 80
+      },
+      {
+        "label": "7월",
+        "samples": 3993,
+        "signals": 15
+      },
+      {
+        "label": "8월",
+        "samples": 5820,
+        "signals": 45
+      },
+      {
+        "label": "9월 (9일까지)",
+        "samples": 1458,
+        "signals": 5
+      }
+    ],
+    [
+      {
+        "label": "오버나이트",
+        "samples": 3032,
+        "signals": 16
+      },
+      {
+        "label": "프리마켓",
+        "samples": 3443,
+        "signals": 24
+      },
+      {
+        "label": "정규장",
+        "samples": 4178,
+        "signals": 81
+      },
+      {
+        "label": "애프터",
+        "samples": 2489,
+        "signals": 24
+      },
+      {
+        "label": "주말",
+        "samples": 0,
+        "signals": 0
+      }
+    ]
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "phase": "filled",
+  "quantity": 0.01,
+  "maxUSDC": 2,
+  "before": {
+    "SPCX.US": {
+      "available": "0.000093",
+      "locked": "0",
+      "staked": "0"
+    },
+    "USDC": {
+      "available": "157.5184916",
+      "locked": "0",
+      "staked": "0"
+    }
+  },
+  "startedAt": "2026-09-11T13:52:10.706Z",
+  "rfqId": "61695506970",
+  "quote": {
+    "askPrice": "147.78",
+    "bidPrice": "147.32",
+    "createdAt": 1789134730870,
+    "quoteId": "61695507003",
+    "rfqId": "61695506970",
+    "status": "New"
+  },
+  "accepted": {
+    "createdAt": 1789134730869,
+    "executedQuantity": "0",
+    "executionMode": "AwaitAccept",
+    "expiryTime": 1789134733369,
+    "quantity": "0.01",
+    "rfqId": "61695506970",
+    "side": "Bid",
+    "status": "New",
+    "submissionTime": 1789134731869,
+    "symbol": "SPCX.US_USDC_RFQ",
+    "systemOrderType": null
+  },
+  "fills": [
+    {
+      "createdAt": "2026-09-11T13:52:10.869",
+      "fillPrice": "147.6",
+      "fillQuantity": "0.01",
+      "fillQuoteQuantity": "1.476",
+      "filledAt": "2026-09-11T13:52:12.453",
+      "quantity": "0.01",
+      "quoteId": "61695507003",
+      "rfqId": "61695506970",
+      "side": "Bid",
+      "symbol": "SPCX.US_USDC_RFQ"
+    }
+  ],
+  "after": {
+    "SPCX.US": {
+      "available": "0.010093",
+      "locked": "0",
+      "staked": "0"
+    },
+    "USDC": {
+      "available": "156.0424916",
+      "locked": "0",
+      "staked": "0"
+    }
+  },
+  "paidUSDC": 1.475999999999999
+}

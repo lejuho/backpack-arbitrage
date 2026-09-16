@@ -1,0 +1,131 @@
+{
+  "phase": "completed",
+  "startedAt": "2026-09-11T13:33:22.708Z",
+  "before": {
+    "usdc": 24.238528,
+    "sol": 0.990240551,
+    "spcx": 0
+  },
+  "quote": {
+    "inputUSDC": 2,
+    "outputSPCX": 0.013612,
+    "routes": [
+      "GoonFi V2:100%"
+    ],
+    "requestId": "01a090ac-3d60-7479-9fb3-948f351c570a"
+  },
+  "mint": "SPCXxcqXj6e5dJDVNovHN8744zkbhM2bYudU45BimGb",
+  "execute": {
+    "status": "Success",
+    "signature": "65HhNjzgj1wxLv7hECrU4GVHE3xM96mvJPgKQnYnyFvqtmAhbEijBKQEuCb5W5yqTSpNLVGfmMnUhBfRz6FdWNpX",
+    "slot": "446169355",
+    "code": 0,
+    "totalInputAmount": "2000000",
+    "totalOutputAmount": "13595",
+    "inputAmountResult": "1998000",
+    "outputAmountResult": "13595",
+    "swapEvents": [
+      {
+        "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "inputAmount": "1998000",
+        "outputMint": "SPCXxcqXj6e5dJDVNovHN8744zkbhM2bYudU45BimGb",
+        "outputAmount": "13595"
+      }
+    ]
+  },
+  "afterBuy": {
+    "usdc": 22.238528,
+    "sol": 0.990235342,
+    "spcx": 0.013595
+  },
+  "boughtRaw": 13595,
+  "bpBeforeDeposit": {
+    "SPCX.US": {
+      "available": "0.000088",
+      "locked": "0",
+      "staked": "0"
+    },
+    "USDC": {
+      "available": "155.5175",
+      "locked": "0",
+      "staked": "0"
+    }
+  },
+  "deposit": {
+    "address": "GZmZt2DG9AHrMVcG31hnN5vurfpxJ7GgdEiBebwcp56o",
+    "quantity": 0.013595,
+    "startedAt": 1789133633725,
+    "signature": "3JPkLsyWrXHouhBxiVSzohHo4BuGD3ge1uNeuSxGDVJKVkEoPe8VMZzFsP18xs9Ayw8puK3Z3etXwyyxwYGRScom",
+    "confirmedAt": 1789133634992,
+    "creditedAt": 1789133727750
+  },
+  "sell": {
+    "quantity": 0.01359,
+    "startedAt": 1789133733582,
+    "usdcBefore": 155.5175,
+    "rfqId": "61687827029",
+    "quote": {
+      "askPrice": "147.45",
+      "bidPrice": "147.01",
+      "createdAt": 1789133733743,
+      "quoteId": "61687827037",
+      "rfqId": "61687827029",
+      "status": "New"
+    },
+    "accepted": {
+      "createdAt": 1789133733742,
+      "executedQuantity": "0",
+      "executionMode": "AwaitAccept",
+      "expiryTime": 1789133736242,
+      "quantity": "0.01359",
+      "rfqId": "61687827029",
+      "side": "Ask",
+      "status": "New",
+      "submissionTime": 1789133734742,
+      "symbol": "SPCX.US_USDC_RFQ",
+      "systemOrderType": null
+    },
+    "fills": [
+      {
+        "createdAt": "2026-09-11T13:35:33.742",
+        "fillPrice": "147.24",
+        "fillQuantity": "0.01359",
+        "fillQuoteQuantity": "2.0009916",
+        "filledAt": "2026-09-11T13:35:34.418",
+        "quantity": "0.01359",
+        "quoteId": "61687827037",
+        "rfqId": "61687827029",
+        "side": "Ask",
+        "symbol": "SPCX.US_USDC_RFQ"
+      }
+    ],
+    "observedFilledAt": 1789133735788
+  },
+  "after": {
+    "SPCX.US": {
+      "available": "0.000093",
+      "locked": "0",
+      "staked": "0"
+    },
+    "USDC": {
+      "available": "157.5184916",
+      "locked": "0",
+      "staked": "0"
+    }
+  },
+  "finalWallet": {
+    "usdc": 22.238528,
+    "sol": 0.990230342,
+    "spcx": 0
+  },
+  "result": {
+    "inputUSDC": 2,
+    "proceedsUSDC": 2.000991599999992,
+    "residualSPCX": 0.000004999999999999796,
+    "networkFeeSOL": 0.000010209,
+    "networkFeesVerified": true,
+    "walletSOLDecrease": 0.000010208999999927748,
+    "depositObservedSeconds": 92.758,
+    "usdcDifference": 0.0009915999999918768
+  }
+}

@@ -20,7 +20,7 @@ const usage = `usage:
   node src/cli.js universe                      # tokenized stocks with Solana rails × Backpack venues
   node src/cli.js session                       # current US-equities session at Backpack
   node src/cli.js dex-labels                    # exact Jupiter DEX labels
-  node src/cli.js compare SPCX.US [--qty=1] [--dexes="Raydium CLMM,Meteora DLMM"] [--taker=PUBLIC_ADDRESS] [--ref-price=150] [--max-age=5000] [--poll=30000]
+  node src/cli.js compare SPCX.US [--qty=1] [--dexes="Raydium CLMM,Meteora DLMM"] [--taker=PUBLIC_ADDRESS] [--bp-rfq] [--ref-price=150] [--max-age=5000] [--poll=30000]
   node src/cli.js snapshot [--qty=1] [--provider=jupiter|raydium]
   node src/cli.js monitor  [--qty=1] [--provider=jupiter|raydium] [--poll=5000]
   node src/cli.js pools SPCX.US                 # Raydium pools for the token
@@ -41,7 +41,7 @@ try {
     if (opt.live) throw new Error('compare is read-only; --live is not supported');
     await runComparison({ symbol: pos[0] || 'SPCX.US', qty: Number(opt.qty || 1),
       dexes: opt.dexes ? [...new Set(String(opt.dexes).split(',').map((x) => x.trim()).filter(Boolean))] : [],
-      taker: opt.taker, refPrice: opt['ref-price'], maxAgeMs: Number(opt['max-age'] || 5000), pollMs: Number(opt.poll || 0) });
+      bpRfq: !!opt['bp-rfq'], taker: opt.taker, refPrice: opt['ref-price'], maxAgeMs: Number(opt['max-age'] || 5000), pollMs: Number(opt.poll || 0) });
   } else if (cmd === 'universe') {
     const u = await buildUniverse({ watch: [] });
     console.table(u.map((t) => ({ symbol: t.symbol, mint: t.mint, dep: t.depositEnabled, wd: t.withdrawEnabled, wdFeeSh: t.withdrawalFee, spot: t.spotSymbol || '-', spotState: t.spotState || '-', rfq: t.rfqSessions ? 'yes' : 'no' })));

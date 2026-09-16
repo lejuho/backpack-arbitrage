@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { attachSellRfq } from './backpack/quote.js';
 import { CFG } from './config.js';
 import { jupQuote, jupDexLabels } from './dex/jupiter.js';
 import { dexSide, backpackSide, computeEdges } from './pricing.js';
@@ -43,8 +44,9 @@ export async function compareQuotes({ token, qty, refPrice, dexes = [], taker, m
   return rows;
 }
 
-export async function runComparison({ symbol = 'SPCX.US', qty = 1, dexes = [], taker, refPrice, pollMs = 0, maxAgeMs = 5000 }) {
+export async function runComparison({ symbol = 'SPCX.US', qty = 1, dexes = [], taker, refPrice, pollMs = 0, maxAgeMs = 5000, bpRfq = false }) {
   if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(pollMs) || pollMs < 0) throw new Error('invalid quantity or poll interval');
+  if (bpRfq && (!CFG.BP_API_KEY || !CFG.BP_API_SECRET)) throw new Error('--bp-rfq requires Backpack API credentials');
   if (!CFG.JUPITER_API_KEY) throw new Error('compare requires JUPITER_API_KEY for V2 (no fallback)');
   if (dexes.length && !taker) throw new Error('DEX comparison requires --taker=<public wallet address>');
   if (taker) {
@@ -69,6 +71,7 @@ export async function runComparison({ symbol = 'SPCX.US', qty = 1, dexes = [], t
     const bp = await backpackSide(token, qty, { session, externalCache });
     const sizing = refPrice == null ? (bp.buyPx || last) : Number(refPrice);
     const rows = await compareQuotes({ token, qty, refPrice: sizing, dexes, taker, maxAgeMs });
+    if (bpRfq && !session.weekendBook) await attachSellRfq(rows, token, { maxAgeMs });
     // A buys a variable number of shares. Reprice book proceeds at that exact quantity.
     const depth = session.weekendBook && token.spotSymbol ? await bpDepth(token.spotSymbol).catch(() => null) : null;
     for (const row of rows) {
@@ -80,6 +83,13 @@ export async function runComparison({ symbol = 'SPCX.US', qty = 1, dexes = [], t
         adjusted.sellPx = adjusted.sellPxCons = sell && !sell.partial ? sell.avgPrice : null;
         adjusted.partial = !buy || buy.partial || !sell || sell.partial;
       }
+      if (bpRfq && !session.weekendBook) {
+        adjusted.buyPx = adjusted.buyPxCons = null; // No authenticated buy RFQ requested.
+        adjusted.sellPx = adjusted.sellPxCons = row.sellRfqValid ? row.sellRfq.price : null;
+        adjusted.bookBuyPx = adjusted.bookSellPx = null;
+        adjusted.partial = false;
+        adjusted.basis = 'authenticated-sell-rfq-cancelled';
+      }
       const now = Date.now();
       row.ts = new Date(now).toISOString();
       row.session = session.session;
@@ -89,17 +99,25 @@ export async function runComparison({ symbol = 'SPCX.US', qty = 1, dexes = [], t
       row.observationWindowMs = now - referenceStartedAt;
       row.stale ||= row.observationWindowMs > maxAgeMs;
       row.validForComparison &&= !row.stale;
+      const buyQuote = row.quotes.find(q => q.direction === 'buy');
+      row.validDexToBp = !row.stale && !!row.dex.buy && !!buyQuote && !buyQuote.errorCode &&
+        (!bpRfq || session.weekendBook || row.sellRfqValid);
       row.edges = row.validForComparison ? computeEdges(token, qty, adjusted, row.dex) : {};
+      if (row.validDexToBp) {
+        const edgesA = computeEdges(token, qty, adjusted, { ...row.dex, sell: null });
+        Object.assign(row.edges, edgesA);
+      }
+      if (!row.validDexToBp) for (const key of Object.keys(row.edges)) if (key.startsWith('dexToBp')) delete row.edges[key];
       if (token.depositEnabled === false || (row.dex.buy && row.dex.buy.sharesOut < (token.minimumDeposit || 0))) {
         for (const key of Object.keys(row.edges)) if (key.startsWith('dexToBp')) delete row.edges[key];
       }
-      row.edgeBasis = session.weekendBook ? 'public-orderbook-estimate' : 'reference-price-only-not-executable-RFQ';
+      row.edgeBasis = session.weekendBook ? 'public-orderbook-estimate' : bpRfq ? (row.sellRfqValid ? 'authenticated-sell-rfq-cancelled' : 'authenticated-sell-rfq-unavailable') : 'reference-price-only-not-executable-RFQ';
     }
     appendJsonl(rows, file);
     console.table(rows.map((r) => ({ source: r.comparison, qty, buy: r.dex.buy?.pxPerShare,
-      sellAfterWithdrawal: r.dex.sell?.pxPerShare, valid: r.validForComparison,
+      sellAfterWithdrawal: r.dex.sell?.pxPerShare, valid: r.validForComparison, validA: r.validDexToBp, bpSell: r.backpack.sellPx,
       basis: r.edgeBasis, A_bps: r.edges.dexToBp?.bps, B_bps: r.edges.bpToDex?.bps,
-      errors: r.dex.errors.join('; ') })));
+      errors: [...r.dex.errors, r.sellRfq?.error, r.sellRfq?.cancelError].filter(Boolean).join('; ') })));
     console.log(`Saved ${rows.length} rows to ${file}; estimates only, no orders submitted.`);
     if (pollMs) await sleep(pollMs);
   } while (pollMs);
